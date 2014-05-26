@@ -1,0 +1,324 @@
+\\----------------------------------------------------------------------------\\
+\\ PROGRAM INFORMATION
+\\
+\\ Phase 2A - Training the 'Go' behavior
+\\ Original Date    Jan 20, 2009
+\\ Last Update:     Nov 19, 2011
+\\ Version number 2.0
+\\
+\\ This file is to be used for the second training phase of GNG or TAC odor
+\\ discrimination task. Only use this file for Days 1 and 2 of Phase 2
+\\
+\\ Requires an odor nosepoke port + one lever or 'go' nosepoke port
+\\ Reward schedule: 100% every time rat nosepokes at odor port AND delivers
+\\   GO signal (lever press or 'go' nose pokes)
+\\ Intertrial interval: 7 seconds
+\\ Single odorant:      csA
+\\ Odor is turned on for two seconds prior to houselight on to charge 
+\\   odor tubes
+\\ Odor is presented with the nosepoke and turned off when withdrawing 
+\\   from nosepoke.
+\\ Vacuum is only OFF during nose poke period
+
+\\----------------------------------------------------------------------------\\
+\\ AUTHORSHIP, CITATIONS, & LICENSE
+\\
+\\ This program was written by
+\\ Donald E Frederick [donald at uchicago dot edu]
+\\ Daniel Rojas-Libano
+\\
+\\ in the laboratory of Prof Leslie M Kay [lkay at uchicago dot edu].
+\\
+\\ Lab website: kaylab.uchicago.edu/
+\\
+\\This program was used in the following experiments. Please use this citation if you
+\\publish something using our code:
+\\
+\\ Frederick, D. E., Rojas-Líbano, D., Scott, M., & Kay, L. M. (2011). Rat
+\\ behavior in go/no-go and two-alternative choice odor discrimination:
+\\ Differences and similarities. Behavioral neuroscience, 125(4), 588-603.
+\\ doi:10.1037/a0024371
+\\
+\\
+\\ This program is free software: you can redistribute it and/or modify
+\\ it under the terms of the GNU General Public License as published by
+\\ the Free Software Foundation, either version 3 of the License, or
+\\ (at your option) any later version.
+\\
+\\ This program is distributed in the hope that it will be useful,
+\\ but WITHOUT ANY WARRANTY; without even the implied warranty of
+\\ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+\\ GNU General Public License for more details.
+\\
+\\ You should have received a copy of the GNU General Public License
+\\ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+\\----------------------------------------------------------------------------\\
+\\ DEFINITIONS
+
+\\ Constants:
+
+\\ Inputs
+    ^nspk = 1         \\ ODOR port is input 1
+    ^goInput = 2      \\ Go Input LEFT
+    ^manswitch = 4    \\ Manual switch is input 4
+
+\\ Outputs
+    ^houseLight = 1   \\ Houselight is output 1
+    ^pellet = 2       \\ Pellet (reward) dispenser is output 2
+    ^odorA = 3        \\ Odor A is output 3; odorA is GO odor LEFT
+    ^odorB = 4        \\ Odor B is output 4; odorB is NOGO odor
+    ^vacuum = 8       \\ Vacuum line output 8; vacuum is near nosepoke and
+                         \\   siphons off odor until nosepoke, at which time it 
+                         \\   is turned off and odor goes to port
+
+\\ Variables
+\\  A   <-- reward probabilities for free reward; use WITHPI
+\\  B   <-- 
+\\  C   <-- # attempted phase 2 trials
+\\  D   <-- # of manual rewards
+\\  E   <-- # of rewards for correct performance
+\\  F   <-- # total trials
+\\  G   <-- # of attempted trials           
+\\  H   <-- # of correct trials             
+\\  I   <-- index for V array
+\\  J   <-- # of go LEFT                    \\ # odor A attempts
+\\  K   <-- # of go LEFT correct            \\ # odor A correct
+\\  L   <-- # of NOGO                       \\ # odor B attempts
+\\  M   <-- # of NOGO correct               \\ # odor B correct
+\\  N   <-- trial type chosen               \\ Possible values N=1 or N=2
+\\  O   <-- last trial sniff time to show in box 1
+\\  P   <-- Mean sniff time
+\\  Q   <-- Amount of time nspk sampled
+\\  R   <-- 
+\\  S   <-- Array for nspk sampling durations
+\\  T   <-- Trial type for attempt trial array and performance
+\\  U   <-- Index
+\\  V   <-- array
+\\  W   <-- logical; reward or not
+\\  X   <-- timer that records elapsed times in 10s of ms
+\\  Y   <-- array
+\\  Z   <-- 
+
+\\ Event Codes 
+\\  1 <--  manual reward
+\\  2 <--  nosepoke at ODOR port
+\\  3 <--  goBehavior: lever press OR nosepoke at GO port 
+\\  4 <--  house light on
+\\  5 <--  house light off
+\\  6 <--  nosepoke ON (odor port)
+\\  7 <--  nosepoke OFF (odor port)
+\\  8 <--  csA
+\\  9 <--  csB
+\\  21 <-- house light off for incorrect go behavior
+\\  29 <-- eos
+
+\\ Arrays
+    DIM S=500       \\ Array for recording sampling durations
+    DIM T=500       \\ Array for recording trial type for attempted trials;
+                    \\   1 <-- phase 2 correct; 0 <-- phase 2 incorrect
+    DIM V=2400      \\ Array for recording events
+    DIM Y=3000      \\ Array for recording ALL nspkON/nspkOFF pairs
+
+\\ Event markers using Z pulses
+    ^reward = 2
+    ^goBehavior = 3
+    ^hsltON  = 4
+    ^hsltOFF = 5
+    ^nspkON  = 6
+    ^nspkOFF = 7
+    ^csA  = 8    \\ Odor A, which is CS+
+    ^csB = 9    \\ Odor B, which is a CS-
+    ^hsltOFF2 = 21
+    ^eos = 29       \\ End of session
+
+\\----------------------------------------------------------------------------\\
+S.S.1, \\ Main body of program
+
+S1,\\ Initiates session 
+        #Start: ON ^vacuum ---> S2 
+
+S2,\\ Turn ON odor & vacuum
+        0.01": IF (H=200) OR (F=400) [@TRUE,@FALSE]
+                                      @TRUE: Z^eos ---> S31
+                                      @FALSE: SET N=1 ---> S3
+
+S3,\\ check performance, set free reward probabilities
+        0.01":  IF H < 15 [@TRUE,@FALSE] 
+
+                    @TRUE:  IF C < 25 [@TRUE,@FALSE]
+                            
+                        @TRUE:  SET A=3000 ---> S4
+                        @FALSE: IF C < 50 [@TRUE,@FALSE]
+                    
+                          @TRUE:  SET A=2500 ---> S4
+                          @FALSE: IF C < 100 [@TRUE,@FALSE]
+                    
+                            @TRUE:  SET A=1000 ---> S4
+                            @FALSE: IF C < 125 [@TRUE,@FALSE]
+                    
+                              @TRUE:  SET A=500 ---> S4
+                              @FALSE: SET A=100 ---> S4
+                    
+                    @FALSE: SET A=0 ---> S4
+
+S4,\\ Turn on selected odorant & vacuum 
+        5": IF N=1 [@TRUE, @FALSE]
+
+                    @TRUE:  ON ^odorA;
+                            Z^csA;
+                            ---> S5
+                    @FALSE: ON ^odorB;
+                            Z^csB;
+                            ---> S5
+
+S5,\\ Wait 1 second then send TTL for houselight on to avoid aliasing
+        1": Z^hsltON ---> S6
+    
+S6,\\ House light on
+        1": ON ^houseLight;
+            ADD F;
+            ---> S7
+
+S7,\\ Check nosepoke at ODOR port
+        #R^nspk: Z^nspkON;
+                 OFF ^vacuum;
+                 SET Q=1;
+                 ADD G, J, C;
+                 ---> S8
+                       
+        6": OFF ^houseLight;
+            Z^hsltOFF;
+            OFF ^odorA;
+            ---> S2
+
+S8,\\ Turn off odor after nose withdrawal; 
+        #R^nspk: ADD Q ---> Sx
+    
+        0.01": Z^nspkOFF;
+               SET S(G-1)=Q/100;
+               ARITHMETICMEAN P=S,0,G-1;
+               SET O=Q/100;
+               ON ^vacuum;
+               OFF ^odorA;
+               ---> S9
+
+S9,\\ Check for GB 
+        #R^goInput: Z^goBehavior;
+                    ON ^pellet;
+                    SET T(G-1)=1;
+                    ADD E, H, K;
+                    ---> S10
+    
+        5": WITHPI=A [@True,@False]
+                
+                      @TRUE: Z^reward;
+                             ON ^pellet;
+                             Add E;
+                             ---> S10
+              
+                      @FALSE: OFF ^houseLight;
+                              Z^hsltOFF;
+                              ---> S2
+
+S10,\\ Deactivate pellet feeder
+        0.1": OFF ^pellet ---> S11
+
+S11,\\ Turn off houselight after reward period
+        5": OFF ^houseLight;
+            Z^hsltOFF;
+            ---> S2
+
+S31,\\ Stopabortflush command end of session
+        0.01": ---> STOPABORTFLUSH
+
+\\----------------------------------------------------------------------------\\
+S.S.2, \\ Count nspkON, nspkOFF write to array Y
+
+S1, \\
+        #START: ---> S2
+ 
+S2, \\
+        #R^nspk: SET Y(U) = X + .1;
+                 ADD U;
+                 ---> S3
+             
+        #Z^eos:  SET Y(U) = X + .29,Y(U+1)=-987.987;
+                 ADD U;
+                 --->Sx   
+
+S3, \\
+        #R^nspk: ---> SX
+        0.01": SET Y(U) = X + .2;
+               ADD U;
+               ---> S4
+ 
+S4, \\
+        0.01": ---> S2
+
+\\----------------------------------------------------------------------------\\
+S.S.3,\\ Timer for recording events
+S1,\\
+        #START: ---> S2
+   
+S2,\\
+        0.01": ADD X ---> Sx
+
+\\----------------------------------------------------------------------------\\
+S.S.4, \\ Record Events
+
+S1,\\
+        #START: ---> S2
+
+S2,\\
+        #Z^reward:      SET V(I) = X + .2; ADD I ---> Sx
+        #Z^goBehavior:  SET V(I) = X + .3; ADD I ---> Sx
+        #Z^hsltON:      SET V(I) = X + .4; ADD I ---> Sx
+        #Z^hsltOFF:     SET V(I) = X + .5; ADD I ---> Sx
+        #Z^nspkON:      SET V(I) = X + .6; ADD I ---> Sx
+        #Z^nspkOFF:     SET V(I) = X + .7; ADD I ---> Sx
+        #Z^csA:         SET V(I) = X + .8; ADD I ---> Sx
+        #Z^csB:         SET V(I) = X + .9; ADD I ---> Sx
+    
+        #Z^eos:         SET V(I) = X + .29,V(I+1)=-987.987;
+                        ADD I;
+                        ---> Sx     
+
+
+
+\\----------------------------------------------------------------------------\\
+S.S.6,\\ Display event count
+
+S1,\\ 
+    #START: ---> S2
+
+S2,\\ Refresh every 100ms
+        0.1": SHOW 1, #Total Trials, F;
+              SHOW 2, #Attempts, G;
+              SHOW 3, #Correct, H;
+              SHOW 4, #Rewards, E;
+              SHOW 5, #manual reward, D;
+    
+              SHOW 6, #CS+ trials, J;
+              SHOW 7, #correct CS+, K;
+
+              SHOW 16, mean sniff time, P;
+              SHOW 17, sniff time, O;
+          
+              ---> Sx
+    
+\\----------------------------------------------------------------------------\\
+S.S.7,\\ Manual reward
+
+S1,\\
+        #START: ---> S2
+
+S2,\\ Look for manswitch input
+        #R^manswitch: ON ^pellet;
+                      ADD D;
+                      ---> S3
+      
+S3,\\ Deactivate pellet feeder  
+        0.1": OFF ^pellet ---> S2
+    
+    
